@@ -5,7 +5,7 @@ import { generateEmbedding } from '@/lib/embeddings'
 export const maxDuration = 45
 
 function isCountingQuery(q: string): boolean {
-  return ['how many','count','total','number of','how much','tally','sum','count of','parameter count','how much'].some(w => q.toLowerCase().includes(w))
+  return ['how many','count','total','number of','how much','tally','sum','count of'].some(w => q.toLowerCase().includes(w))
 }
 
 function isDiscoveryQuery(q: string): boolean {
@@ -26,13 +26,14 @@ export async function POST(req: NextRequest) {
     const discovery = isDiscoveryQuery(question)
     const multiDoc = isMultiDocQuery(question)
 
-    // PASS 1 — broad search top 20
-    const { data: topChunks, error } = await supabaseAdmin.rpc('match_chunks', {
+    const { data: topChunks, error } = await supabaseAdmin.rpc('hybrid_search', {
+      query_text: question,
       query_embedding: embedding,
       match_count: 20
     })
 
     if (error) throw error
+
     if (!topChunks || topChunks.length === 0) {
       return NextResponse.json({
         answer: 'This information is not in the Granth knowledge base. Ask your admin to add the relevant document.',
@@ -40,38 +41,40 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Get unique doc IDs from top chunks
     const topDocIds = [...new Set(topChunks.map((c: any) => c.document_id))] as string[]
     const nameMap = Object.fromEntries(topChunks.map((c: any) => [c.document_id, c.document_name]))
 
     let chunks: any[]
 
-    if (counting || multiDoc) {
-      // For counting — only fetch from the MOST RELEVANT doc (first match)
-      // This prevents other docs from consuming the context window
-      const primaryDocId = counting && !multiDoc ? [topDocIds[0]] : topDocIds
+    const specificTestTerms = ['lipid','cbc','kft','lft','urine routine','thyroid','vitamin','serology','haematology','biochemistry','cardiology','oncology','immunology','microbiology','endocrinology','liver function','kidney function','blood count','glucose','bilirubin']
+    const isSpecificTest = specificTestTerms.some(w => question.toLowerCase().includes(w))
+    const isTotalCount = counting && !isSpecificTest
 
+    if (isTotalCount || multiDoc) {
       const { data: allChunks } = await supabaseAdmin
         .from('chunks')
         .select('id, document_id, content')
-        .in('document_id', primaryDocId)
+        .in('document_id', topDocIds)
         .order('id')
 
+      const relevanceOrder = Object.fromEntries(topDocIds.map((id, i) => [id, i]))
       chunks = (allChunks || [])
         .map((c: any) => ({ ...c, document_name: nameMap[c.document_id] }))
-        .sort((a: any, b: any) => a.content.length - b.content.length)
+        .sort((a: any, b: any) => {
+          if (a.content.length < 1000 && b.content.length >= 1000) return -1
+          if (b.content.length < 1000 && a.content.length >= 1000) return 1
+          return (relevanceOrder[a.document_id] || 99) - (relevanceOrder[b.document_id] || 99)
+        })
     } else {
-      // Best 3 chunks per doc
       const docChunkMap = new Map<string, any[]>()
       for (const chunk of topChunks) {
         if (!docChunkMap.has(chunk.document_id)) docChunkMap.set(chunk.document_id, [])
         const arr = docChunkMap.get(chunk.document_id)!
-        if (arr.length < 3) arr.push(chunk)
+        if (arr.length < 4) arr.push(chunk)
       }
       chunks = Array.from(docChunkMap.values()).flat()
     }
 
-    // Entity context
     const { data: entities } = await supabaseAdmin.from('entities').select('name, aliases, type, description')
     let entityContext = ''
     if (entities?.length) {
@@ -86,7 +89,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Fetch doc metadata
     const { data: docs } = await supabaseAdmin
       .from('documents')
       .select('id, name, source_url, summary')
@@ -94,7 +96,6 @@ export async function POST(req: NextRequest) {
 
     const docMeta = Object.fromEntries((docs || []).map((d: any) => [d.id, d]))
 
-    // Build context grouped by doc — summaries first
     const docGroups = new Map<string, { name: string; summary: string; chunks: string[] }>()
     for (const chunk of chunks) {
       if (!docGroups.has(chunk.document_id)) {
@@ -131,7 +132,7 @@ STRICT RULES:
 - Answer ONLY from the documents provided
 - If not found: "This information is not in the Granth knowledge base."
 - Never make up data or estimates
-- For counting: use DOCUMENT SUMMARY or TOTAL rows — never guess
+- For counting: use DOCUMENT SUMMARY or TOTAL rows
 - Label which info came from which document
 
 NOT ALLOWED: code, philosophy, opinions, small talk
@@ -142,14 +143,14 @@ FORMATTING:
 - Simple fact → plain text
 - Always cite source document(s)`
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'qwen/qwen3.8-27b',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...history,

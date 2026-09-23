@@ -16,11 +16,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Document appears empty or could not be read.' }, { status: 400 })
     }
 
-    const summaryRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const summaryRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-20b',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: 'Summarize the following document in 3 sentences.' },
           { role: 'user', content: text.slice(0, 3000) }
