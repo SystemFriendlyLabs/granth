@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
 
     const { data: chunks, error } = await supabaseAdmin.rpc('match_chunks', {
       query_embedding: embedding,
-      match_count: 5
+      match_count: 10
     })
 
     if (error) throw error

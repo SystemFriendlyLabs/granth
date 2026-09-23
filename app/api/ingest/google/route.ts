@@ -18,10 +18,7 @@ export async function POST(req: NextRequest) {
 
     const summaryRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROQ_API_KEY}` },
       body: JSON.stringify({
         model: 'openai/gpt-oss-20b',
         messages: [
@@ -36,20 +33,18 @@ export async function POST(req: NextRequest) {
 
     const { data: doc, error: docError } = await supabaseAdmin
       .from('documents')
-      .insert({
-        name: title,
-        type: 'google',
-        source_url: url,
-        summary,
-        tags: ['google'],
-        uploaded_by: uploadedBy
-      })
-      .select()
-      .single()
+      .insert({ name: title, type: 'google', source_url: url, summary, tags: ['google'], uploaded_by: uploadedBy })
+      .select().single()
 
     if (docError) throw docError
 
-    const chunks = chunkText(text)
+    // Detect if it's a sheet — store as fewer larger chunks to preserve row context
+    const isSheet = url.includes('spreadsheets')
+
+    const chunks = isSheet
+      ? splitSheetIntoLargeChunks(text)
+      : chunkText(text)
+
     for (const chunk of chunks) {
       const embedding = await generateEmbedding(chunk)
       await supabaseAdmin.from('chunks').insert({
@@ -64,4 +59,25 @@ export async function POST(req: NextRequest) {
     console.error(err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
+}
+
+// For sheets: split by rows but keep chunks large (2000 words) so counting works
+function splitSheetIntoLargeChunks(text: string): string[] {
+  const lines = text.split('\n').filter(l => l.trim())
+  if (lines.length === 0) return [text]
+
+  const header = lines[0]
+  const dataLines = lines.slice(1)
+  const chunkSize = 100 // rows per chunk
+
+  if (dataLines.length <= chunkSize) {
+    return [text] // small sheet — keep as one chunk
+  }
+
+  const chunks: string[] = []
+  for (let i = 0; i < dataLines.length; i += chunkSize) {
+    const batch = dataLines.slice(i, i + chunkSize)
+    chunks.push(`${header}\n${batch.join('\n')}`)
+  }
+  return chunks
 }
