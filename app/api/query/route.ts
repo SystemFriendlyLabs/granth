@@ -4,25 +4,49 @@ import { generateEmbedding } from '@/lib/embeddings'
 
 export const maxDuration = 30
 
+function isCountingQuery(question: string): boolean {
+  const countWords = ['how many', 'count', 'total', 'number of', 'how much', 'tally', 'sum']
+  const q = question.toLowerCase()
+  return countWords.some(w => q.includes(w))
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { question, history = [] } = await req.json()
     if (!question) return NextResponse.json({ error: 'No question provided' }, { status: 400 })
 
     const embedding = await generateEmbedding(question)
+    const counting = isCountingQuery(question)
 
-    const { data: chunks, error } = await supabaseAdmin.rpc('match_chunks', {
+    // Step 1: find most relevant chunks
+    const { data: topChunks, error } = await supabaseAdmin.rpc('match_chunks', {
       query_embedding: embedding,
-      match_count: 10
+      match_count: counting ? 20 : 8
     })
 
     if (error) throw error
-
-    if (!chunks || chunks.length === 0) {
+    if (!topChunks || topChunks.length === 0) {
       return NextResponse.json({
-        answer: 'This information is not available in the Granth knowledge base. Please contact your admin to add the relevant document.',
+        answer: 'This information is not in the Granth knowledge base. Ask your admin to add the relevant document.',
         sources: []
       })
+    }
+
+    let chunks = topChunks
+
+    // Step 2: for counting queries, fetch ALL chunks from the matched documents
+    if (counting) {
+      const docIds = [...new Set(topChunks.map((c: any) => c.document_id))]
+      const { data: allChunks } = await supabaseAdmin
+        .from('chunks')
+        .select('id, document_id, content')
+        .in('document_id', docIds)
+
+      if (allChunks && allChunks.length > 0) {
+        // add document name from topChunks map
+        const nameMap = Object.fromEntries(topChunks.map((c: any) => [c.document_id, c.document_name]))
+        chunks = allChunks.map((c: any) => ({ ...c, document_name: nameMap[c.document_id] }))
+      }
     }
 
     const context = chunks.map((c: any) => `[From: ${c.document_name}]\n${c.content}`).join('\n\n')
@@ -64,12 +88,13 @@ ALLOWED:
 - Answer questions about SFL products, policies, bugs, features, people, processes, pricing
 - Briefly explain a technical term if needed to make an answer understandable
 - Summarize, compare, or list information from the documents
+- Count, tally, or aggregate data from the documents
 
 NOT ALLOWED:
 - Writing or explaining code
 - Philosophy, opinions, general advice
 - Anything not directly supported by the provided context
-- Small talk or casual conversation — redirect to document queries
+- Small talk or casual conversation
 - Answering ambiguous questions — ask for clarification instead
 
 FORMATTING RULES:
