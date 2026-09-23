@@ -12,6 +12,7 @@
     "@ai-sdk/groq": "^4.0.46",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/supabase-js": "^2.117.0",
+    "@xenova/transformers": "^2.17.2",
     "ai": "^7.0.111",
     "google-auth-library": "^11.1.0",
     "googleapis": "^181.0.0",
@@ -20,9 +21,9 @@
     "marked": "^18.0.14",
     "next": "16.3.6",
     "officeparser": "^8.0.0",
-    "pdf-parse": "^2.4.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "unpdf": "^1.8.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
