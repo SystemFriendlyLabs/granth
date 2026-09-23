@@ -2,35 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateEmbedding } from '@/lib/embeddings'
 
-export const maxDuration = 30
+export const maxDuration = 45
 
 function isCountingQuery(q: string): boolean {
   return ['how many','count','total','number of','how much','tally','sum'].some(w => q.toLowerCase().includes(w))
 }
 
-function isMultiDocQuery(q: string): boolean {
-  const multiWords = ['compare','vs','versus','difference between','both','across','all products','lims and inventory','inventory and lims']
-  return multiWords.some(w => q.toLowerCase().includes(w))
+function isDiscoveryQuery(q: string): boolean {
+  return ['where','which document','which doc','find','locate','where can i','what do we have'].some(w => q.toLowerCase().includes(w))
 }
 
-async function extractEntities(question: string): Promise<string> {
-  const { data: entities } = await supabaseAdmin
-    .from('entities')
-    .select('name, aliases, type, description')
-
-  if (!entities || entities.length === 0) return ''
-
-  const q = question.toLowerCase()
-  const matched = entities.filter((e: any) => {
-    const names = [e.name, ...(e.aliases || [])].map((n: string) => n.toLowerCase())
-    return names.some(n => q.includes(n))
-  })
-
-  if (matched.length === 0) return ''
-
-  return '\n\nKNOWN ENTITIES REFERENCED:\n' + matched.map((e: any) =>
-    `- ${e.name} (${e.type}): ${e.description}`
-  ).join('\n')
+function isMultiDocQuery(q: string): boolean {
+  return ['compare','vs','versus','difference','both','across','all products'].some(w => q.toLowerCase().includes(w))
 }
 
 export async function POST(req: NextRequest) {
@@ -40,13 +23,13 @@ export async function POST(req: NextRequest) {
 
     const embedding = await generateEmbedding(question)
     const counting = isCountingQuery(question)
+    const discovery = isDiscoveryQuery(question)
     const multiDoc = isMultiDocQuery(question)
 
-    const matchCount = counting || multiDoc ? 20 : 8
-
+    // PASS 1 — broad search, top 20 chunks across all docs
     const { data: topChunks, error } = await supabaseAdmin.rpc('match_chunks', {
       query_embedding: embedding,
-      match_count: matchCount
+      match_count: 20
     })
 
     if (error) throw error
@@ -58,11 +41,19 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    let chunks = topChunks
+    // PASS 2 — group by document, pick best 3 chunks per doc
+    const docChunkMap = new Map<string, any[]>()
+    for (const chunk of topChunks) {
+      if (!docChunkMap.has(chunk.document_id)) docChunkMap.set(chunk.document_id, [])
+      const arr = docChunkMap.get(chunk.document_id)!
+      if (arr.length < 3) arr.push(chunk)
+    }
 
-    // For counting or multi-doc queries — fetch ALL chunks from matched docs
+    let chunks = Array.from(docChunkMap.values()).flat()
+
+    // For counting or multi-doc — fetch ALL chunks from matched docs
     if (counting || multiDoc) {
-      const docIds = [...new Set(topChunks.map((c: any) => c.document_id))]
+      const docIds = [...docChunkMap.keys()]
       const { data: allChunks } = await supabaseAdmin
         .from('chunks')
         .select('id, document_id, content')
@@ -74,14 +65,36 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Extract entity context
-    const entityContext = await extractEntities(question)
+    // Entity context
+    const { data: entities } = await supabaseAdmin.from('entities').select('name, aliases, type, description')
+    let entityContext = ''
+    if (entities && entities.length > 0) {
+      const q = question.toLowerCase()
+      const matched = entities.filter((e: any) =>
+        [e.name, ...(e.aliases || [])].some((n: string) => q.includes(n.toLowerCase()))
+      )
+      if (matched.length > 0) {
+        entityContext = '\n\nKNOWN ENTITIES:\n' + matched.map((e: any) =>
+          `- ${e.name} (${e.type}): ${e.description}`
+        ).join('\n')
+      }
+    }
 
-    const context = chunks
-      .map((c: any) => `[From: ${c.document_name}]\n${c.content}`)
+    // Build context grouped by document
+    const docGroups = new Map<string, { name: string; chunks: string[] }>()
+    for (const chunk of chunks) {
+      if (!docGroups.has(chunk.document_id)) {
+        docGroups.set(chunk.document_id, { name: chunk.document_name, chunks: [] })
+      }
+      docGroups.get(chunk.document_id)!.chunks.push(chunk.content)
+    }
+
+    const context = Array.from(docGroups.values())
+      .map(doc => `=== SOURCE: ${doc.name} ===\n${doc.chunks.join('\n')}`)
       .join('\n\n')
       .slice(0, 14000)
 
+    // Sources
     const docIds = [...new Set(chunks.map((c: any) => c.document_id))]
     const { data: docs } = await supabaseAdmin
       .from('documents')
@@ -94,6 +107,39 @@ export async function POST(req: NextRequest) {
       url: docMap[c.document_id]?.source_url || null
     }])).values()]
 
+    const systemPrompt = discovery
+      ? `You are GRANTH, the internal knowledge assistant for SystemFriendly Labs (SFL).
+
+The user wants to DISCOVER where information lives. Your job:
+- List every document where relevant info was found
+- For each document, summarize what it contains about the topic
+- Use this format:
+
+**Found in [Document Name]:**
+Brief summary of what's there. Key points: X, Y, Z.
+
+**Found in [Another Document]:**
+Brief summary...
+
+Then give a collated summary at the end.
+Always cite document names clearly.`
+      : `You are GRANTH, the internal knowledge assistant for SystemFriendly Labs (SFL).
+
+STRICT RULES:
+- Answer ONLY from the documents provided — never from general knowledge
+- If not found: "This information is not in the Granth knowledge base."
+- Never make up data, estimates, or guesses
+- For multi-document answers, clearly label which info came from which document
+
+NOT ALLOWED: code, philosophy, opinions, small talk, general advice
+
+FORMATTING:
+- Data/comparisons/lists → markdown TABLE
+- Steps → NUMBERED LIST
+- Simple fact → plain text
+- Multi-source answer → group by source with clear labels
+- Always cite which document(s) the answer came from`
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -103,34 +149,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model: 'openai/gpt-oss-20b',
         messages: [
-          {
-            role: 'system',
-            content: `You are GRANTH, the internal knowledge assistant for SystemFriendly Labs (SFL).
-
-STRICT RULES:
-- Answer ONLY from the documents and entity context provided below
-- If not found, say: "This information is not in the Granth knowledge base."
-- Never use general knowledge or make up information
-- For comparisons across documents, analyze all provided document chunks together
-- For named people or entities, use the KNOWN ENTITIES section to enrich your answer
-
-NOT ALLOWED:
-- Writing code, philosophy, opinions, general advice
-- Small talk — redirect to document queries
-- Answering ambiguous questions — ask one clarifying question
-
-FORMATTING:
-- Data, comparisons, multiple items → markdown TABLE
-- Steps → NUMBERED LIST  
-- Simple fact → plain text
-- Always cite source document(s)
-- For multi-document comparisons, clearly label which data came from which document`
-          },
+          { role: 'system', content: systemPrompt },
           ...history,
-          {
-            role: 'user',
-            content: `Context:\n${context}${entityContext}\n\nQuestion: ${question}`
-          }
+          { role: 'user', content: `Context:\n${context}${entityContext}\n\nQuestion: ${question}` }
         ],
         max_tokens: 2000
       })
