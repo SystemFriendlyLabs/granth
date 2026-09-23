@@ -7,13 +7,10 @@ export const maxDuration = 30
 export async function POST(req: NextRequest) {
   try {
     const { question, history = [] } = await req.json()
-
     if (!question) return NextResponse.json({ error: 'No question provided' }, { status: 400 })
 
-    // Embed the question
     const embedding = await generateEmbedding(question)
 
-    // Find relevant chunks
     const { data: chunks, error } = await supabaseAdmin.rpc('match_chunks', {
       query_embedding: embedding,
       match_count: 5
@@ -22,17 +19,23 @@ export async function POST(req: NextRequest) {
     if (error) throw error
 
     if (!chunks || chunks.length === 0) {
-      return NextResponse.json({
-        answer: 'I could not find any relevant information in the knowledge base. Please make sure the relevant documents have been uploaded.',
-        sources: []
-      })
+      return NextResponse.json({ answer: 'No relevant information found in the knowledge base.', sources: [] })
     }
 
-    // Build context
     const context = chunks.map((c: any) => `[From: ${c.document_name}]\n${c.content}`).join('\n\n')
-    const sources = [...new Set(chunks.map((c: any) => c.document_name))]
 
-    // Call Groq
+    const docIds = [...new Set(chunks.map((c: any) => c.document_id))]
+    const { data: docs } = await supabaseAdmin
+      .from('documents')
+      .select('id, name, source_url')
+      .in('id', docIds)
+
+    const docMap = Object.fromEntries((docs || []).map((d: any) => [d.id, d]))
+    const sources = [...new Map(chunks.map((c: any) => [c.document_id, {
+      name: c.document_name,
+      url: docMap[c.document_id]?.source_url || null
+    }])).values()]
+
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -44,19 +47,22 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: 'system',
-            content: `You are Granth, the internal knowledge assistant for SystemFriendly Labs (SFL). 
-Answer questions based only on the provided context. 
-If the answer is not in the context, say so clearly.
-Always be concise, accurate, and helpful.
-Mention which document the information came from.`
+            content: `You are GRANTH, the internal knowledge AI for SystemFriendly Labs (SFL).
+
+FORMATTING RULES — follow strictly:
+- Structured data, comparisons, multiple items with attributes → markdown TABLE
+- Steps or sequences → NUMBERED LIST  
+- Simple fact or short answer → plain text
+- Code → code block
+- Be concise and precise
+- Always cite which document the info came from
+
+Answer only from the provided context. If not found, say so clearly.`
           },
           ...history,
-          {
-            role: 'user',
-            content: `Context:\n${context}\n\nQuestion: ${question}`
-          }
+          { role: 'user', content: `Context:\n${context}\n\nQuestion: ${question}` }
         ],
-        max_tokens: 1000
+        max_tokens: 1500
       })
     })
 
