@@ -6,11 +6,15 @@ export async function generateEmbedding(text: string): Promise<number[]> {
       'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
     },
     body: JSON.stringify({
-      input: text,
+      input: text.slice(0, 8000),
       model: 'text-embedding-3-small'
     })
   })
   const data = await response.json()
+  if (!data.data?.[0]?.embedding) {
+    console.error('OpenAI embedding error:', JSON.stringify(data))
+    throw new Error(`Embedding failed: ${data.error?.message || JSON.stringify(data)}`)
+  }
   return data.data[0].embedding
 }
 
