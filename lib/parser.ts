@@ -29,7 +29,7 @@ export async function parseFile(buffer: Buffer, mimeType: string, fileName: stri
   if (ext === 'pptx' || mimeType.includes('presentationml')) {
     const { default: officeParser } = await import('officeparser')
     return new Promise((resolve, reject) => {
-      officeParser.parseOfficeAsync(buffer, (data: string, err: Error) => {
+      officeParser.parseOffice(buffer, (data: string, err: Error) => {
         if (err) reject(err)
         else resolve(data)
       })
