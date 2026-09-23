@@ -1,17 +1,18 @@
-let pipeline: any = null
-
-async function getEmbedder() {
-  if (!pipeline) {
-    const { pipeline: createPipeline } = await import('@xenova/transformers')
-    pipeline = await createPipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2')
-  }
-  return pipeline
-}
-
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const embeder = await getEmbedder()
-  const output = await embeder(text, { pooling: 'mean', normalize: true })
-  return Array.from(output.data) as number[]
+  const response = await fetch(
+    'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY || ''}`
+      },
+      body: JSON.stringify({ inputs: text, options: { wait_for_model: true } })
+    }
+  )
+  const data = await response.json()
+  if (Array.isArray(data[0])) return data[0]
+  return data
 }
 
 export function chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
