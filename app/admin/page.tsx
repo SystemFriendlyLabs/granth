@@ -91,60 +91,61 @@ export default function AdminPage() {
         @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600&family=Orbitron:wght@400;700&display=swap');
         *{box-sizing:border-box;margin:0;padding:0;}
         html,body{background:#f0f4ff;}
-        .root{min-height:100vh;background:#f0f4ff;font-family:'Rajdhani',sans-serif;color:#1a2040;position:relative;}
+        .root{min-height:100vh;background:#f0f4ff;font-family:'Rajdhani',sans-serif;color:#1a2040;}
         .grid{position:fixed;inset:0;background-image:linear-gradient(rgba(0,80,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,80,255,0.04) 1px,transparent 1px);background-size:32px 32px;pointer-events:none;}
-        .nav{background:#e8eeff;border-bottom:2px solid #c0ccff;padding:0 32px;height:52px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;}
-        .nav-logo{display:flex;align-items:baseline;gap:10px;}
-        .nav-sanskrit{font-family:'Orbitron',monospace;font-size:20px;color:#2040cc;text-shadow:2px 2px 0 #c0ccff;}
-        .nav-label{font-family:'Share Tech Mono',monospace;font-size:9px;color:#9090c0;letter-spacing:3px;}
-        .nav-links{display:flex;gap:20px;}
-        .nav-link{font-family:'Share Tech Mono',monospace;font-size:9px;color:#9090b0;letter-spacing:2px;text-decoration:none;background:none;border:none;cursor:pointer;transition:color 0.15s;}
+        .nav{background:#e8eeff;border-bottom:2px solid #c0ccff;padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:1;}
+        .nav-logo{display:flex;align-items:baseline;gap:8px;}
+        .nav-sanskrit{font-family:'Orbitron',monospace;font-size:18px;color:#2040cc;text-shadow:2px 2px 0 #c0ccff;}
+        .nav-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:#9090c0;letter-spacing:2px;}
+        @media(max-width:480px){.nav-label{display:none;}}
+        .nav-links{display:flex;gap:16px;}
+        .nav-link{font-family:'Share Tech Mono',monospace;font-size:9px;color:#9090b0;letter-spacing:1px;text-decoration:none;background:none;border:none;cursor:pointer;transition:color 0.15s;padding:4px;}
         .nav-link:hover{color:#2040cc;}
-        .body{max-width:900px;margin:0 auto;padding:36px 24px;position:relative;z-index:1;}
-        .tabs{display:flex;gap:2px;margin-bottom:24px;}
-        .tab{padding:8px 20px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:#9090b0;background:#fff;border:1px solid #c0ccff;cursor:pointer;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 0.15s;}
+        .body{max-width:860px;margin:0 auto;padding:28px 16px;position:relative;z-index:1;}
+        .tabs{display:flex;gap:2px;margin-bottom:20px;}
+        .tab{flex:1;padding:10px 16px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;color:#9090b0;background:#fff;border:1px solid #c0ccff;cursor:pointer;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 0.15s;text-align:center;}
         .tab.active{color:#fff;background:#2040cc;border-color:#2040cc;}
         .tab:hover:not(.active){color:#2040cc;border-color:#2040cc66;}
-        .panel{background:#fff;border:1px solid #c0ccff;border-top:3px solid #2040cc;margin-bottom:12px;position:relative;}
-        .panel-head{padding:14px 20px;border-bottom:1px solid #e8eeff;display:flex;align-items:center;justify-content:space-between;background:#f8f9ff;}
+        .panel{background:#fff;border:1px solid #c0ccff;border-top:3px solid #2040cc;margin-bottom:12px;}
+        .panel-head{padding:12px 16px;border-bottom:1px solid #e8eeff;display:flex;align-items:center;justify-content:space-between;background:#f8f9ff;}
         .panel-title{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6070a0;letter-spacing:2px;}
-        .panel-count{font-family:'Share Tech Mono',monospace;font-size:9px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:2px 8px;letter-spacing:2px;}
-        .panel-body{padding:20px;}
-        .hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:#b0b8cc;letter-spacing:1px;margin-bottom:12px;}
+        .panel-count{font-family:'Share Tech Mono',monospace;font-size:9px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:2px 8px;letter-spacing:1px;}
+        .panel-body{padding:16px;}
+        .hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:#b0b8cc;letter-spacing:1px;margin-bottom:10px;}
         input[type=file]{display:none;}
-        .file-zone{border:2px dashed #c0ccff;padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer;margin-bottom:12px;transition:border-color 0.15s;background:#f8f9ff;}
-        .file-zone:hover{border-color:#2040cc66;background:#f0f4ff;}
-        .file-icon{font-size:18px;}
-        .file-name{font-family:'Share Tech Mono',monospace;font-size:10px;color:#6070a0;letter-spacing:1px;}
-        .url-in{width:100%;padding:10px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:13px;font-family:'Rajdhani',sans-serif;outline:none;margin-bottom:12px;transition:border-color 0.2s;}
+        .file-zone{border:2px dashed #c0ccff;padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:12px;transition:border-color 0.15s;background:#f8f9ff;}
+        .file-zone:hover,.file-zone:active{border-color:#2040cc66;background:#f0f4ff;}
+        .file-name{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6070a0;letter-spacing:1px;word-break:break-all;}
+        .url-in{width:100%;padding:12px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:16px;font-family:'Rajdhani',sans-serif;outline:none;margin-bottom:12px;transition:border-color 0.2s;}
         .url-in::placeholder{color:#b0b8cc;}
         .url-in:focus{border-color:#2040cc66;}
-        .btn{padding:9px 18px;background:#2040cc;border:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);transition:background 0.15s;}
+        .btn{padding:11px 20px;background:#2040cc;border:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);transition:background 0.15s;}
         .btn:hover{background:#1030aa;}
         .btn:disabled{opacity:0.4;cursor:not-allowed;}
+        .btn-full{width:100%;}
         .ok{font-family:'Share Tech Mono',monospace;font-size:9px;color:#00aa44;letter-spacing:1px;margin-top:8px;}
         .err{font-family:'Share Tech Mono',monospace;font-size:9px;color:#cc2040;letter-spacing:1px;margin-top:8px;}
-        .doc-row{display:flex;align-items:flex-start;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #f0f4ff;gap:16px;transition:background 0.1s;}
+        .doc-row{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f0f4ff;gap:12px;transition:background 0.1s;}
         .doc-row:last-child{border-bottom:none;}
         .doc-row:hover{background:#f8f9ff;}
         .doc-info{flex:1;min-width:0;}
-        .doc-name{font-size:13px;color:#2a3870;letter-spacing:0.3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-        .doc-open{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;text-decoration:none;border:1px solid #2040cc30;padding:1px 6px;letter-spacing:1px;transition:all 0.15s;}
-        .doc-open:hover{background:#2040cc10;}
-        .doc-badge{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:1px 6px;letter-spacing:1px;}
+        .doc-name{font-size:13px;color:#2a3870;display:flex;align-items:center;gap:6px;flex-wrap:wrap;word-break:break-word;}
+        .doc-open{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;text-decoration:none;border:1px solid #2040cc30;padding:2px 6px;letter-spacing:1px;white-space:nowrap;}
+        .doc-badge{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:2px 6px;letter-spacing:1px;}
         .doc-sum{font-size:11px;color:#7080a0;margin-top:3px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
         .doc-meta{font-family:'Share Tech Mono',monospace;font-size:8px;color:#b0b8cc;margin-top:4px;letter-spacing:1px;}
-        .del-btn{font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;background:none;border:1px solid transparent;cursor:pointer;padding:4px 8px;letter-spacing:1px;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
-        .del-btn:hover{color:#cc2040;border-color:#cc204022;background:#cc204008;}
-        .empty{padding:32px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;letter-spacing:2px;}
-        .user-form{display:flex;gap:8px;}
-        .user-in{flex:1;padding:9px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:13px;font-family:'Rajdhani',sans-serif;outline:none;}
+        .del-btn{font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;background:none;border:1px solid transparent;cursor:pointer;padding:6px 8px;letter-spacing:1px;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
+        .del-btn:hover,.del-btn:active{color:#cc2040;border-color:#cc204022;background:#cc204008;}
+        .empty{padding:28px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;letter-spacing:2px;}
+        .user-form{display:flex;gap:8px;flex-wrap:wrap;}
+        .user-in{flex:1;min-width:180px;padding:11px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:16px;font-family:'Rajdhani',sans-serif;outline:none;}
         .user-in::placeholder{color:#b0b8cc;}
-        .role-sel{padding:9px 10px;background:#f0f4ff;border:1px solid #c0ccff;color:#6070a0;font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;letter-spacing:1px;}
-        .user-row{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #f0f4ff;}
+        .role-sel{padding:11px 10px;background:#f0f4ff;border:1px solid #c0ccff;color:#6070a0;font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;letter-spacing:1px;}
+        .user-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f0f4ff;gap:8px;}
         .user-row:last-child{border-bottom:none;}
-        .user-email{font-size:13px;color:#2a3870;}
-        .role-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 8px;letter-spacing:1px;margin-left:10px;}
+        .user-info{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-width:0;}
+        .user-email{font-size:13px;color:#2a3870;word-break:break-all;}
+        .role-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 8px;letter-spacing:1px;white-space:nowrap;}
         .role-admin{color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;}
         .role-reader{color:#9090b0;background:#f0f4ff;border:1px solid #c0ccff;}
       `}</style>
@@ -156,7 +157,7 @@ export default function AdminPage() {
             <span className="nav-label">ADMIN VAULT</span>
           </div>
           <div className="nav-links">
-            <a className="nav-link" href="/chat">QUERY MODE</a>
+            <a className="nav-link" href="/chat">QUERY</a>
             <button className="nav-link" onClick={() => { localStorage.removeItem('granth_user'); router.push('/') }}>SIGN OUT</button>
           </div>
         </nav>
@@ -173,10 +174,10 @@ export default function AdminPage() {
                 <input ref={fileRef} type="file" id="fi" accept=".pdf,.docx,.xlsx,.xls,.pptx,.md,.txt,.png,.jpg,.jpeg"
                   onChange={e => setFileName(e.target.files?.[0]?.name || '')}/>
                 <label htmlFor="fi" className="file-zone">
-                  <span className="file-icon">📎</span>
-                  <span className="file-name">{fileName || 'SELECT FILE — PDF, WORD, EXCEL, PPT, MD, IMAGE'}</span>
+                  <span style={{fontSize:18}}>📎</span>
+                  <span className="file-name">{fileName || 'TAP TO SELECT FILE — PDF, WORD, EXCEL, PPT, MD, IMAGE'}</span>
                 </label>
-                <button className="btn" onClick={handleUpload as any} disabled={uploading}>
+                <button className={`btn btn-full`} onClick={handleUpload as any} disabled={uploading}>
                   {uploading ? 'INDEXING...' : 'UPLOAD + INDEX'}
                 </button>
                 {uploadMsg === 'success' && <div className="ok">✓ INDEXED SUCCESSFULLY</div>}
@@ -191,7 +192,7 @@ export default function AdminPage() {
                 <form onSubmit={handleGoogleLink}>
                   <input className="url-in" type="url" placeholder="https://docs.google.com/..."
                     value={googleUrl} onChange={e => setGoogleUrl(e.target.value)} required/>
-                  <button className="btn" type="submit" disabled={googleLoading}>
+                  <button className="btn btn-full" type="submit" disabled={googleLoading}>
                     {googleLoading ? 'FETCHING...' : 'INDEX LINK'}
                   </button>
                   {googleMsg === 'success' && <div className="ok">✓ INDEXED SUCCESSFULLY</div>}
@@ -210,7 +211,7 @@ export default function AdminPage() {
                   <div key={doc.id} className="doc-row">
                     <div className="doc-info">
                       <div className="doc-name">
-                        {doc.name}
+                        <span>{doc.name}</span>
                         {doc.type === 'google' && <span className="doc-badge">GOOGLE</span>}
                         {doc.source_url && <a className="doc-open" href={doc.source_url} target="_blank" rel="noopener noreferrer">↗ OPEN</a>}
                       </div>
@@ -248,7 +249,7 @@ export default function AdminPage() {
               {users.length === 0 ? <div className="empty">NO USERS CONFIGURED</div> : (
                 users.map((u: any) => (
                   <div key={u.id} className="user-row">
-                    <div style={{display:'flex',alignItems:'center'}}>
+                    <div className="user-info">
                       <span className="user-email">{u.email}</span>
                       <span className={`role-badge ${u.role==='admin'?'role-admin':'role-reader'}`}>{u.role.toUpperCase()}</span>
                     </div>
