@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const context = chunks.map((c: any) => `[From: ${c.document_name}]\n${c.content}`).join('\n\n')
+    const context = chunks.map((c: any) => `[From: ${c.document_name}]\n${c.content}`).join("\n\n").slice(0, 12000)
+${c.content}`).join("
+
+").slice(0, 12000)
 
     const docIds = [...new Set(chunks.map((c: any) => c.document_id))]
     const { data: docs } = await supabaseAdmin
