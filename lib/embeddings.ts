@@ -1,18 +1,17 @@
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const response = await fetch(
-    'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.HUGGINGFACE_API_KEY || ''}`
-      },
-      body: JSON.stringify({ inputs: text, options: { wait_for_model: true } })
-    }
-  )
+  const response = await fetch('https://api.openai.com/v1/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      input: text,
+      model: 'text-embedding-3-small'
+    })
+  })
   const data = await response.json()
-  if (Array.isArray(data[0])) return data[0]
-  return data
+  return data.data[0].embedding
 }
 
 export function chunkText(text: string, chunkSize = 500, overlap = 50): string[] {
