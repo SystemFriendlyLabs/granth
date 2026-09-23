@@ -47,11 +47,14 @@ export async function POST(req: NextRequest) {
     let chunks: any[]
 
     if (counting || multiDoc) {
-      // Fetch ALL chunks from matched docs, sorted small first (summaries first)
+      // For counting — only fetch from the MOST RELEVANT doc (first match)
+      // This prevents other docs from consuming the context window
+      const primaryDocId = counting && !multiDoc ? [topDocIds[0]] : topDocIds
+
       const { data: allChunks } = await supabaseAdmin
         .from('chunks')
         .select('id, document_id, content')
-        .in('document_id', topDocIds)
+        .in('document_id', primaryDocId)
         .order('id')
 
       chunks = (allChunks || [])
@@ -146,7 +149,7 @@ FORMATTING:
         'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'openai/gpt-oss-120b',
+        model: 'qwen/qwen3.8-27b',
         messages: [
           { role: 'system', content: systemPrompt },
           ...history,
