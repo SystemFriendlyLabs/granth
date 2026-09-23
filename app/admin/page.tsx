@@ -11,9 +11,11 @@ export default function AdminPage() {
   const [googleMsg, setGoogleMsg] = useState('')
   const [googleLoading, setGoogleLoading] = useState(false)
   const [users, setUsers] = useState<any[]>([])
+  const [entities, setEntities] = useState<any[]>([])
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState('reader')
-  const [activeTab, setActiveTab] = useState<'docs'|'users'>('docs')
+  const [newEntity, setNewEntity] = useState({ name: '', aliases: '', type: 'person', description: '' })
+  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'>('docs')
   const fileRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const router = useRouter()
@@ -23,7 +25,7 @@ export default function AdminPage() {
     if (!stored) { router.push('/'); return }
     const u = JSON.parse(stored)
     if (u.role !== 'admin') { router.push('/chat'); return }
-    setUser(u); fetchDocs(); fetchUsers()
+    setUser(u); fetchDocs(); fetchUsers(); fetchEntities()
   }, [])
 
   async function fetchDocs() {
@@ -36,6 +38,12 @@ export default function AdminPage() {
     const res = await fetch('/api/auth/users')
     const { users } = await res.json()
     setUsers(users || [])
+  }
+
+  async function fetchEntities() {
+    const res = await fetch('/api/entities')
+    const { entities } = await res.json()
+    setEntities(entities || [])
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -85,6 +93,25 @@ export default function AdminPage() {
     fetchUsers()
   }
 
+  async function handleAddEntity(e: React.FormEvent) {
+    e.preventDefault()
+    await fetch('/api/entities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...newEntity,
+        aliases: newEntity.aliases.split(',').map(a => a.trim()).filter(Boolean)
+      })
+    })
+    setNewEntity({ name: '', aliases: '', type: 'person', description: '' })
+    fetchEntities()
+  }
+
+  async function handleDeleteEntity(id: string) {
+    await fetch('/api/entities', { method: 'DELETE', body: JSON.stringify({ id }), headers: { 'Content-Type': 'application/json' } })
+    fetchEntities()
+  }
+
   return (
     <>
       <style>{`
@@ -103,7 +130,7 @@ export default function AdminPage() {
         .nav-link:hover{color:#2040cc;}
         .body{max-width:860px;margin:0 auto;padding:28px 16px;position:relative;z-index:1;}
         .tabs{display:flex;gap:2px;margin-bottom:20px;}
-        .tab{flex:1;padding:10px 16px;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1px;color:#9090b0;background:#fff;border:1px solid #c0ccff;cursor:pointer;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 0.15s;text-align:center;}
+        .tab{flex:1;padding:10px 8px;font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;color:#9090b0;background:#fff;border:1px solid #c0ccff;cursor:pointer;clip-path:polygon(6px 0%,100% 0%,calc(100% - 6px) 100%,0% 100%);transition:all 0.15s;text-align:center;}
         .tab.active{color:#fff;background:#2040cc;border-color:#2040cc;}
         .tab:hover:not(.active){color:#2040cc;border-color:#2040cc66;}
         .panel{background:#fff;border:1px solid #c0ccff;border-top:3px solid #2040cc;margin-bottom:12px;}
@@ -114,11 +141,17 @@ export default function AdminPage() {
         .hint{font-family:'Share Tech Mono',monospace;font-size:9px;color:#b0b8cc;letter-spacing:1px;margin-bottom:10px;}
         input[type=file]{display:none;}
         .file-zone{border:2px dashed #c0ccff;padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:12px;transition:border-color 0.15s;background:#f8f9ff;}
-        .file-zone:hover,.file-zone:active{border-color:#2040cc66;background:#f0f4ff;}
+        .file-zone:hover{border-color:#2040cc66;background:#f0f4ff;}
         .file-name{font-family:'Share Tech Mono',monospace;font-size:9px;color:#6070a0;letter-spacing:1px;word-break:break-all;}
         .url-in{width:100%;padding:12px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:16px;font-family:'Rajdhani',sans-serif;outline:none;margin-bottom:12px;transition:border-color 0.2s;}
         .url-in::placeholder{color:#b0b8cc;}
         .url-in:focus{border-color:#2040cc66;}
+        .field{margin-bottom:10px;}
+        .field-label{font-family:'Share Tech Mono',monospace;font-size:8px;color:#6070a0;letter-spacing:2px;display:block;margin-bottom:4px;}
+        .field-in{width:100%;padding:10px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:14px;font-family:'Rajdhani',sans-serif;outline:none;transition:border-color 0.2s;}
+        .field-in::placeholder{color:#b0b8cc;}
+        .field-in:focus{border-color:#2040cc66;}
+        .field-select{width:100%;padding:10px 14px;background:#f0f4ff;border:1px solid #c0ccff;color:#6070a0;font-family:'Share Tech Mono',monospace;font-size:9px;outline:none;letter-spacing:1px;}
         .btn{padding:11px 20px;background:#2040cc;border:none;color:#fff;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;cursor:pointer;clip-path:polygon(5px 0%,100% 0%,calc(100% - 5px) 100%,0% 100%);transition:background 0.15s;}
         .btn:hover{background:#1030aa;}
         .btn:disabled{opacity:0.4;cursor:not-allowed;}
@@ -130,12 +163,12 @@ export default function AdminPage() {
         .doc-row:hover{background:#f8f9ff;}
         .doc-info{flex:1;min-width:0;}
         .doc-name{font-size:13px;color:#2a3870;display:flex;align-items:center;gap:6px;flex-wrap:wrap;word-break:break-word;}
-        .doc-open{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;text-decoration:none;border:1px solid #2040cc30;padding:2px 6px;letter-spacing:1px;white-space:nowrap;}
+        .doc-open{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;text-decoration:none;border:1px solid #2040cc30;padding:2px 6px;letter-spacing:1px;}
         .doc-badge{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:2px 6px;letter-spacing:1px;}
         .doc-sum{font-size:11px;color:#7080a0;margin-top:3px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
         .doc-meta{font-family:'Share Tech Mono',monospace;font-size:8px;color:#b0b8cc;margin-top:4px;letter-spacing:1px;}
         .del-btn{font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;background:none;border:1px solid transparent;cursor:pointer;padding:6px 8px;letter-spacing:1px;transition:all 0.15s;white-space:nowrap;flex-shrink:0;}
-        .del-btn:hover,.del-btn:active{color:#cc2040;border-color:#cc204022;background:#cc204008;}
+        .del-btn:hover{color:#cc2040;border-color:#cc204022;background:#cc204008;}
         .empty{padding:28px;text-align:center;font-family:'Share Tech Mono',monospace;font-size:9px;color:#c0c8d8;letter-spacing:2px;}
         .user-form{display:flex;gap:8px;flex-wrap:wrap;}
         .user-in{flex:1;min-width:180px;padding:11px 14px;background:#f0f4ff;border:1px solid #c0ccff;border-left:3px solid #2040cc;color:#1a2040;font-size:16px;font-family:'Rajdhani',sans-serif;outline:none;}
@@ -148,6 +181,16 @@ export default function AdminPage() {
         .role-badge{font-family:'Share Tech Mono',monospace;font-size:8px;padding:2px 8px;letter-spacing:1px;white-space:nowrap;}
         .role-admin{color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;}
         .role-reader{color:#9090b0;background:#f0f4ff;border:1px solid #c0ccff;}
+        .entity-row{display:flex;align-items:flex-start;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #f0f4ff;gap:12px;}
+        .entity-row:last-child{border-bottom:none;}
+        .entity-row:hover{background:#f8f9ff;}
+        .entity-info{flex:1;min-width:0;}
+        .entity-name{font-size:13px;color:#2a3870;font-weight:500;}
+        .entity-type{font-family:'Share Tech Mono',monospace;font-size:8px;color:#2040cc;background:#2040cc10;border:1px solid #2040cc20;padding:2px 6px;letter-spacing:1px;margin-left:8px;}
+        .entity-desc{font-size:11px;color:#7080a0;margin-top:3px;line-height:1.5;}
+        .entity-aliases{font-family:'Share Tech Mono',monospace;font-size:8px;color:#b0b8cc;margin-top:3px;letter-spacing:1px;}
+        .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+        @media(max-width:480px){.grid-2{grid-template-columns:1fr;}}
       `}</style>
       <div className="root">
         <div className="grid"/>
@@ -165,6 +208,7 @@ export default function AdminPage() {
           <div className="tabs">
             <button className={`tab ${activeTab==='docs'?'active':''}`} onClick={() => setActiveTab('docs')}>KNOWLEDGE VAULT</button>
             <button className={`tab ${activeTab==='users'?'active':''}`} onClick={() => setActiveTab('users')}>USER ACCESS</button>
+            <button className={`tab ${activeTab==='entities'?'active':''}`} onClick={() => setActiveTab('entities')}>ENTITIES</button>
           </div>
 
           {activeTab === 'docs' && <>
@@ -177,7 +221,7 @@ export default function AdminPage() {
                   <span style={{fontSize:18}}>📎</span>
                   <span className="file-name">{fileName || 'TAP TO SELECT FILE — PDF, WORD, EXCEL, PPT, MD, IMAGE'}</span>
                 </label>
-                <button className={`btn btn-full`} onClick={handleUpload as any} disabled={uploading}>
+                <button className="btn btn-full" onClick={handleUpload as any} disabled={uploading}>
                   {uploading ? 'INDEXING...' : 'UPLOAD + INDEX'}
                 </button>
                 {uploadMsg === 'success' && <div className="ok">✓ INDEXED SUCCESSFULLY</div>}
@@ -254,6 +298,72 @@ export default function AdminPage() {
                       <span className={`role-badge ${u.role==='admin'?'role-admin':'role-reader'}`}>{u.role.toUpperCase()}</span>
                     </div>
                     <button className="del-btn" onClick={() => handleRemoveUser(u.email)}>REVOKE</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </>}
+
+          {activeTab === 'entities' && <>
+            <div className="panel">
+              <div className="panel-head"><span className="panel-title">ADD ENTITY</span></div>
+              <div className="panel-body">
+                <div className="hint">ADD PEOPLE, PRODUCTS, VENDORS — GRANTH WILL RECOGNIZE THEM IN QUERIES</div>
+                <form onSubmit={handleAddEntity}>
+                  <div className="grid-2">
+                    <div className="field">
+                      <label className="field-label">NAME</label>
+                      <input className="field-in" placeholder="Surabhi" value={newEntity.name}
+                        onChange={e => setNewEntity({...newEntity, name: e.target.value})} required/>
+                    </div>
+                    <div className="field">
+                      <label className="field-label">TYPE</label>
+                      <select className="field-select" value={newEntity.type}
+                        onChange={e => setNewEntity({...newEntity, type: e.target.value})}>
+                        <option value="person">PERSON</option>
+                        <option value="product">PRODUCT</option>
+                        <option value="vendor">VENDOR</option>
+                        <option value="client">CLIENT</option>
+                        <option value="other">OTHER</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">ALIASES (comma separated)</label>
+                    <input className="field-in" placeholder="Surabhi M, Surabhi Mishra"
+                      value={newEntity.aliases}
+                      onChange={e => setNewEntity({...newEntity, aliases: e.target.value})}/>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">DESCRIPTION</label>
+                    <input className="field-in" placeholder="QA Engineer at SFL, reports bugs for LIMS and InventoryCloud"
+                      value={newEntity.description}
+                      onChange={e => setNewEntity({...newEntity, description: e.target.value})} required/>
+                  </div>
+                  <button className="btn btn-full" type="submit">ADD ENTITY</button>
+                </form>
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head">
+                <span className="panel-title">KNOWN ENTITIES</span>
+                <span className="panel-count">{entities.length} ENTITIES</span>
+              </div>
+              {entities.length === 0 ? <div className="empty">NO ENTITIES ADDED YET</div> : (
+                entities.map((e: any) => (
+                  <div key={e.id} className="entity-row">
+                    <div className="entity-info">
+                      <div>
+                        <span className="entity-name">{e.name}</span>
+                        <span className="entity-type">{e.type.toUpperCase()}</span>
+                      </div>
+                      <div className="entity-desc">{e.description}</div>
+                      {e.aliases?.length > 0 && (
+                        <div className="entity-aliases">ALIASES: {e.aliases.join(', ')}</div>
+                      )}
+                    </div>
+                    <button className="del-btn" onClick={() => handleDeleteEntity(e.id)}>REMOVE</button>
                   </div>
                 ))
               )}
