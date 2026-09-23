@@ -15,7 +15,9 @@ export default function AdminPage() {
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState('reader')
   const [newEntity, setNewEntity] = useState({ name: '', aliases: '', type: 'person', description: '' })
-  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'>('docs')
+  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'|'analytics'>('docs')
+  const [analytics, setAnalytics] = useState<any>(null)
+  const [selectedLog, setSelectedLog] = useState<any>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const router = useRouter()
@@ -25,7 +27,7 @@ export default function AdminPage() {
     if (!stored) { router.push('/'); return }
     const u = JSON.parse(stored)
     if (u.role !== 'admin') { router.push('/chat'); return }
-    setUser(u); fetchDocs(); fetchUsers(); fetchEntities()
+    setUser(u); fetchDocs(); fetchUsers(); fetchEntities(); fetchAnalytics()
   }, [])
 
   async function fetchDocs() {
@@ -38,6 +40,12 @@ export default function AdminPage() {
     const res = await fetch('/api/auth/users')
     const { users } = await res.json()
     setUsers(users || [])
+  }
+
+  async function fetchAnalytics() {
+    const res = await fetch('/api/analytics')
+    const data = await res.json()
+    setAnalytics(data)
   }
 
   async function fetchEntities() {
@@ -209,6 +217,7 @@ export default function AdminPage() {
             <button className={`tab ${activeTab==='docs'?'active':''}`} onClick={() => setActiveTab('docs')}>KNOWLEDGE VAULT</button>
             <button className={`tab ${activeTab==='users'?'active':''}`} onClick={() => setActiveTab('users')}>USER ACCESS</button>
             <button className={`tab ${activeTab==='entities'?'active':''}`} onClick={() => setActiveTab('entities')}>ENTITIES</button>
+            <button className={`tab ${activeTab==='analytics'?'active':''}`} onClick={() => { setActiveTab('analytics'); fetchAnalytics() }}>ANALYTICS</button>
           </div>
 
           {activeTab === 'docs' && <>
@@ -369,6 +378,129 @@ export default function AdminPage() {
               )}
             </div>
           </>}
+        {activeTab === 'analytics' && <>
+            <div className="panel">
+              <div className="panel-head">
+                <span className="panel-title">QUERY STATS</span>
+                <button className="btn" style={{padding:'4px 12px',fontSize:'8px'}} onClick={fetchAnalytics}>REFRESH</button>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'1px',background:'#c0ccff'}}>
+                {[
+                  {label:'TOTAL QUERIES', value: analytics?.total || 0},
+                  {label:'UPVOTES 👍', value: analytics?.upvotes || 0},
+                  {label:'DOWNVOTES 👎', value: analytics?.downvotes || 0},
+                ].map(stat => (
+                  <div key={stat.label} style={{background:'#f8f9ff',padding:'16px',textAlign:'center'}}>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'8px'}}>{stat.label}</div>
+                    <div style={{fontFamily:'Orbitron,monospace',fontSize:'24px',color:'#2040cc'}}>{stat.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="panel">
+              <div className="panel-head"><span className="panel-title">QUERY LOG</span></div>
+              {!analytics?.logs?.length ? <div className="empty">NO QUERIES YET</div> : (
+                <div style={{overflowX:'auto'}}>
+                  <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
+                    <thead>
+                      <tr style={{background:'#f0f4ff'}}>
+                        {['TIME','USER','QUESTION','ANSWER','VOTE'].map(h => (
+                          <th key={h} style={{padding:'8px 12px',fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#6070a0',letterSpacing:'1px',textAlign:'left',borderBottom:'1px solid #c0ccff',whiteSpace:'nowrap'}}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.logs.map((log: any) => (
+                        <tr key={log.id} style={{borderBottom:'1px solid #f0f4ff',cursor:'pointer'}} onClick={() => setSelectedLog(log)} onMouseEnter={e => (e.currentTarget.style.background='#f8f9ff')} onMouseLeave={e => (e.currentTarget.style.background='')}>
+                          <td style={{padding:'8px 12px',color:'#9090b0',fontFamily:'Share Tech Mono,monospace',fontSize:'9px',whiteSpace:'nowrap'}}>
+                            {new Date(log.created_at).toLocaleDateString('en-IN')} {new Date(log.created_at).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}
+                          </td>
+                          <td style={{padding:'8px 12px',color:'#6070a0',fontFamily:'Share Tech Mono,monospace',fontSize:'9px',whiteSpace:'nowrap',maxWidth:'120px',overflow:'hidden',textOverflow:'ellipsis'}}>
+                            {log.user_email?.split('@')[0] || '—'}
+                          </td>
+                          <td style={{padding:'8px 12px',color:'#2a3870',maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {log.question}
+                          </td>
+                          <td style={{padding:'8px 12px',color:'#7080a0',maxWidth:'250px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                            {log.answer?.slice(0,100)}{log.answer?.length > 100 ? '...' : ''}
+                          </td>
+                          <td style={{padding:'8px 12px',textAlign:'center',fontSize:'14px'}}>
+                            {log.score === 1 ? '👍' : log.score === -1 ? '👎' : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="panel">
+              <div className="panel-head"><span className="panel-title">TOP QUESTIONS</span></div>
+              {!analytics?.topQuestions?.length ? <div className="empty">NO DATA YET</div> : (
+                analytics.topQuestions.map((q: any, i: number) => (
+                  <div key={i} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',borderBottom:'1px solid #f0f4ff'}}>
+                    <span style={{fontSize:'13px',color:'#2a3870',flex:1,marginRight:'12px'}}>{q.question}</span>
+                    <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'10px',color:'#2040cc',background:'#2040cc10',border:'1px solid #2040cc20',padding:'2px 8px',whiteSpace:'nowrap'}}>{q.count}x</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {selectedLog && (
+              <div style={{position:'fixed',inset:0,background:'rgba(0,20,80,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}} onClick={() => setSelectedLog(null)}>
+                <div style={{background:'#fff',border:'2px solid #c0ccff',borderTop:'3px solid #2040cc',maxWidth:'700px',width:'100%',maxHeight:'80vh',overflow:'auto',padding:'24px'}} onClick={e => e.stopPropagation()}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
+                    <span style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',color:'#6070a0',letterSpacing:'2px'}}>QUERY DETAIL</span>
+                    <button onClick={() => setSelectedLog(null)} style={{background:'none',border:'none',cursor:'pointer',fontSize:'18px',color:'#9090b0'}}>✕</button>
+                  </div>
+                  <div style={{marginBottom:'12px'}}>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'4px'}}>USER</div>
+                    <div style={{fontSize:'13px',color:'#2a3870'}}>{selectedLog.user_email}</div>
+                  </div>
+                  <div style={{marginBottom:'12px'}}>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'4px'}}>TIME</div>
+                    <div style={{fontSize:'13px',color:'#2a3870'}}>{new Date(selectedLog.created_at).toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style={{marginBottom:'12px'}}>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'4px'}}>QUESTION</div>
+                    <div style={{fontSize:'14px',color:'#2040cc',fontWeight:'500'}}>{selectedLog.question}</div>
+                  </div>
+                  <div style={{marginBottom:'12px'}}>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'8px'}}>ANSWER</div>
+                    <div style={{fontSize:'13px',color:'#3a4070',lineHeight:'1.8',background:'#f8f9ff',border:'1px solid #c0ccff',borderLeft:'3px solid #2040cc',padding:'12px',whiteSpace:'pre-wrap'}}>{selectedLog.answer}</div>
+                  </div>
+                  {selectedLog.sources?.length > 0 && (
+                    <div style={{marginBottom:'12px'}}>
+                      <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'8px'}}>SOURCES</div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+                        {selectedLog.sources.map((s: any, i: number) => (
+                          <span key={i} style={{fontFamily:'Share Tech Mono,monospace',fontSize:'9px',color:'#2040cc',background:'#2040cc08',border:'1px solid #2040cc20',padding:'3px 10px'}}>{s.name}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div>
+                    <div style={{fontFamily:'Share Tech Mono,monospace',fontSize:'8px',color:'#9090b0',letterSpacing:'2px',marginBottom:'8px'}}>FEEDBACK</div>
+                    <div style={{fontSize:'20px'}}>{selectedLog.score === 1 ? '👍 Upvoted' : selectedLog.score === -1 ? '👎 Downvoted' : '— No feedback'}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {analytics?.failed?.length > 0 && (
+              <div className="panel" style={{borderTopColor:'#cc2040'}}>
+                <div className="panel-head"><span className="panel-title" style={{color:'#cc2040'}}>DOWNVOTED QUERIES — NEEDS BETTER DOCS</span></div>
+                {analytics.failed.map((q: string, i: number) => (
+                  <div key={i} style={{padding:'10px 16px',borderBottom:'1px solid #f0f4ff',fontSize:'13px',color:'#cc2040'}}>
+                    ✗ {q}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>}
+
         </div>
       </div>
     </>

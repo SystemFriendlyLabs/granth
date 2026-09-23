@@ -163,7 +163,21 @@ FORMATTING:
     const data = await response.json()
     const answer = data.choices?.[0]?.message?.content || 'No answer generated.'
 
-    return NextResponse.json({ answer, sources })
+    // Log query
+    const chunkIds = chunks.map((c: any) => c.id)
+    const { data: logEntry } = await supabaseAdmin
+      .from('query_logs')
+      .insert({
+        question,
+        answer,
+        sources: sources,
+        chunk_ids: chunkIds,
+        user_email: req.headers.get('x-user-email') || 'unknown'
+      })
+      .select('id')
+      .single()
+
+    return NextResponse.json({ answer, sources, query_log_id: logEntry?.id })
   } catch (err: any) {
     console.error(err)
     return NextResponse.json({ error: err.message }, { status: 500 })
