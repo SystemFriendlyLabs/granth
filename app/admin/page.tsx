@@ -19,6 +19,12 @@ export default function AdminPage() {
   const [newQuestions, setNewQuestions] = useState([{ question: '', options: ['','','',''], correct_answer: '', explanation: '' }])
   const [assignAll, setAssignAll] = useState<string>('all')
   const [quizLoading, setQuizLoading] = useState(false)
+  const [genTopic, setGenTopic] = useState('')
+  const [genDifficulty, setGenDifficulty] = useState('medium')
+  const [genCount, setGenCount] = useState(5)
+  const [genLoading, setGenLoading] = useState(false)
+  const [genMsg, setGenMsg] = useState('')
+  const [genPreview, setGenPreview] = useState<any[]>([])
   const [quizMsg, setQuizMsg] = useState('')
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [newEmail, setNewEmail] = useState('')
@@ -608,8 +614,92 @@ export default function AdminPage() {
         )}
 
           {activeTab === 'quizzes' && <>
+            <div className="section" style={{borderTop:'3px solid #1a1a1a'}}>
+              <div className="section-head" style={{background:'#faf9f6'}}>
+                <div>
+                  <span className="section-title">Generate with AI</span>
+                  <div style={{fontSize:'12px',color:'#999',marginTop:'2px'}}>Granth reads your knowledge base and builds a quiz automatically</div>
+                </div>
+                <span style={{fontSize:'20px'}}>✨</span>
+              </div>
+              <div className="section-body">
+                <div className="grid-2">
+                  <div className="field">
+                    <label className="field-label">Topic</label>
+                    <input className="field-input" placeholder="e.g. LFT parameters, LIMS features, leave policy" value={genTopic} onChange={e => setGenTopic(e.target.value)}/>
+                  </div>
+                  <div className="field">
+                    <label className="field-label">Difficulty</label>
+                    <select className="field-select" value={genDifficulty} onChange={e => setGenDifficulty(e.target.value)}>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="field">
+                  <label className="field-label">Number of questions: {genCount}</label>
+                  <input type="range" min={3} max={15} value={genCount} onChange={e => setGenCount(Number(e.target.value))} style={{width:'100%',marginTop:'6px'}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'11px',color:'#bbb',marginTop:'4px'}}><span>3</span><span>15</span></div>
+                </div>
+                <div style={{marginBottom:'16px'}}>
+                  <label className="field-label" style={{display:'block',marginBottom:'10px'}}>Assign to</label>
+                  <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                    {['all','readers','admins'].map(role => (
+                      <button key={role} onClick={() => setAssignAll(role)}
+                        style={{padding:'7px 14px',background:assignAll===role?'#1a1a1a':'#f7f6f2',color:assignAll===role?'#fff':'#666',border:'1.5px solid',borderColor:assignAll===role?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontFamily:'DM Sans,sans-serif',textTransform:'capitalize'}}>
+                        {role === 'all' ? 'Everyone' : role === 'readers' ? 'Readers only' : 'Admins only'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {genPreview.length > 0 && (
+                  <div style={{background:'#faf9f6',border:'1px solid #ebe8e2',borderRadius:'12px',padding:'16px',marginBottom:'16px'}}>
+                    <div style={{fontSize:'11px',fontWeight:600,color:'#999',letterSpacing:'1px',marginBottom:'12px'}}>PREVIEW — {genPreview.length} questions generated</div>
+                    {genPreview.map((q, i) => (
+                      <div key={i} style={{marginBottom:'12px',paddingBottom:'12px',borderBottom:i<genPreview.length-1?'1px solid #f0ede8':'none'}}>
+                        <div style={{fontSize:'13px',fontWeight:500,color:'#1a1a1a',marginBottom:'6px'}}>Q{i+1}. {q.question}</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:'4px'}}>
+                          {q.options?.map((opt: string, oi: number) => (
+                            <span key={oi} style={{fontSize:'11px',padding:'3px 8px',borderRadius:'6px',background:opt===q.correct_answer?'#f0fdf9':'#f7f6f2',border:`1px solid ${opt===q.correct_answer?'#bbf7d0':'#ebe8e2'}`,color:opt===q.correct_answer?'#065f46':'#666'}}>
+                              {['A','B','C','D'][oi]}. {opt}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button className="btn btn-full" disabled={genLoading || !genTopic.trim()} onClick={async () => {
+                  setGenLoading(true); setGenMsg(''); setGenPreview([])
+                  let assignTo: string[] = []
+                  if (assignAll === 'all') assignTo = users.map((u: any) => u.email)
+                  else if (assignAll === 'readers') assignTo = users.filter((u: any) => u.role === 'reader').map((u: any) => u.email)
+                  else if (assignAll === 'admins') assignTo = users.filter((u: any) => u.role === 'admin').map((u: any) => u.email)
+                  const res = await fetch('/api/quizzes/generate', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ topic: genTopic, difficulty: genDifficulty, count: genCount, assignTo, created_by: user.email })
+                  })
+                  const data = await res.json()
+                  if (data.success) {
+                    setGenMsg('success')
+                    setGenPreview(data.questions || [])
+                    setGenTopic('')
+                    fetchQuizzes()
+                  } else {
+                    setGenMsg('error:' + data.error)
+                  }
+                  setGenLoading(false)
+                }}>
+                  {genLoading ? 'Generating quiz from knowledge base...' : 'Generate quiz with AI ✨'}
+                </button>
+                {genMsg === 'success' && <div className="msg-ok">Quiz generated and assigned!</div>}
+                {genMsg.startsWith('error:') && <div className="msg-err">{genMsg.slice(6)}</div>}
+              </div>
+            </div>
+
             <div className="section">
-              <div className="section-head"><span className="section-title">Create quiz</span></div>
+              <div className="section-head"><span className="section-title">Create quiz manually</span></div>
               <div className="section-body">
                 <div className="field">
                   <label className="field-label">Title</label>
