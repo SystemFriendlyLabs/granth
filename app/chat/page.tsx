@@ -100,7 +100,7 @@ export default function ChatPage() {
             <span style={{fontSize:'11px',color:'#10b981',fontWeight:500}}>Online</span>
           </div>
           <span className="sb-email">{user?.email}</span>
-          <button className="sb-logout" onClick={() => { localStorage.removeItem('granth_user'); router.push('/') }}>Sign out</button>
+          <button className="sb-logout" onClick={() => { localStorage.removeItem('granth_user'); fetch('/api/auth/logout', {method:'POST'}); router.push('/') }}>Sign out</button>
         </div>
       </div>
 

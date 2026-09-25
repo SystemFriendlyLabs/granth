@@ -31,12 +31,15 @@ export default function Home() {
     e.preventDefault()
     setLoading(true)
     setError('')
-    const res = await fetch('/api/auth/users')
-    const { users } = await res.json()
-    const user = users?.find((u: any) => u.email === email)
-    if (!user) { setError('Access denied — contact your admin'); setLoading(false); return }
-    localStorage.setItem('granth_user', JSON.stringify(user))
-    router.push(user.role === 'admin' ? '/admin' : '/chat')
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    })
+    const data = await res.json()
+    if (!res.ok) { setError('Access denied — contact your admin'); setLoading(false); return }
+    localStorage.setItem('granth_user', JSON.stringify(data.user))
+    router.push(data.user.role === 'admin' ? '/admin' : '/chat')
     setLoading(false)
   }
 

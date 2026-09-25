@@ -13,11 +13,12 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [entities, setEntities] = useState<any[]>([])
   const [analytics, setAnalytics] = useState<any>(null)
+  const [sessions, setSessions] = useState<any[]>([])
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState('reader')
   const [newEntity, setNewEntity] = useState({ name: '', aliases: '', type: 'person', description: '' })
-  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'|'analytics'>('docs')
+  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'|'analytics'|'presence'>('docs')
   const fileRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [fileContext, setFileContext] = useState('')
@@ -28,7 +29,7 @@ export default function AdminPage() {
     if (!stored) { router.push('/'); return }
     const u = JSON.parse(stored)
     if (u.role !== 'admin') { router.push('/chat'); return }
-    setUser(u); fetchDocs(); fetchUsers(); fetchEntities(); fetchAnalytics()
+    setUser(u); fetchDocs(); fetchUsers(); fetchEntities(); fetchAnalytics(); fetchSessions()
   }, [])
 
   async function fetchDocs() {
@@ -50,6 +51,12 @@ export default function AdminPage() {
     const res = await fetch('/api/analytics')
     const data = await res.json()
     setAnalytics(data)
+  }
+
+  async function fetchSessions() {
+    const res = await fetch('/api/sessions')
+    const data = await res.json()
+    setSessions(data.sessions || [])
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -119,6 +126,7 @@ export default function AdminPage() {
     { id: 'users', label: 'Users', count: users.length },
     { id: 'entities', label: 'Entities', count: entities.length },
     { id: 'analytics', label: 'Analytics', count: analytics?.total || 0 },
+    { id: 'presence', label: 'Whos Online', count: sessions.filter((s:any) => s.online).length },
   ]
 
   return (
@@ -245,7 +253,7 @@ export default function AdminPage() {
           </div>
           <div className="nav-links">
             <a className="nav-link" href="/chat">Open chat</a>
-            <button className="nav-link" onClick={() => { localStorage.removeItem('granth_user'); router.push('/') }}>Sign out</button>
+            <button className="nav-link" onClick={() => { localStorage.removeItem('granth_user'); fetch('/api/auth/logout', {method:'POST'}); router.push('/') }}>Sign out</button>
           </div>
         </nav>
 
@@ -420,6 +428,35 @@ export default function AdminPage() {
                       {e.aliases?.length > 0 && <div className="item-meta">Also: {e.aliases.join(', ')}</div>}
                     </div>
                     <button className="del-btn" onClick={() => handleDeleteEntity(e.id)}>Remove</button>
+                  </div>
+                ))
+              )}
+            </div>
+          </>}
+
+          {activeTab === 'presence' && <>
+            <div className="section">
+              <div className="section-head">
+                <span className="section-title">Active users</span>
+                <button className="btn btn-sm btn-ghost" onClick={fetchSessions}>Refresh</button>
+              </div>
+              {sessions.length === 0 ? <div className="empty-msg">No sessions yet.</div> : (
+                sessions.map((s: any) => (
+                  <div key={s.email} className="item-row">
+                    <div style={{display:'flex',alignItems:'center',gap:'10px',flex:1,minWidth:0}}>
+                      <div style={{width:'8px',height:'8px',borderRadius:'50%',background:s.online?'#10b981':'#ddd',flexShrink:0}}/>
+                      <div className="item-info">
+                        <div className="item-name">
+                          {s.email}
+                          <span className={`badge ${s.role==='admin'?'badge-admin':'badge-reader'}`}>{s.role}</span>
+                        </div>
+                        {s.last_query && <div className="item-sum">Last asked: {s.last_query}</div>}
+                        <div className="item-meta">
+                          {s.online ? 'Online now' : `Last seen ${new Date(s.last_seen).toLocaleString('en-IN')}`}
+                          {s.ip_address && s.ip_address !== 'unknown' && ` · ${s.ip_address}`}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))
               )}

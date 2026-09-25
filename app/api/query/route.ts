@@ -163,6 +163,14 @@ FORMATTING:
     const data = await response.json()
     const answer = data.choices?.[0]?.message?.content || 'No answer generated.'
 
+    // Update session last query
+    try {
+      await supabaseAdmin.from('sessions').update({
+        last_query: question,
+        last_seen: new Date().toISOString()
+      }).eq('email', req.headers.get('x-user-email') || '')
+    } catch {}
+
     // Log query
     const chunkIds = chunks.map((c: any) => c.id)
     const { data: logEntry } = await supabaseAdmin
