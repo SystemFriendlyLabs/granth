@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 const quotes = [
   { text: "विद्या ददाति विनयम्", meaning: "Knowledge gives humility" },
@@ -14,7 +15,6 @@ const quotes = [
 ]
 
 export default function Home() {
-  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [quote, setQuote] = useState(quotes[0])
@@ -25,22 +25,51 @@ export default function Home() {
     const shuffled = [...quotes].sort(() => Math.random() - 0.5)
     setQuote(shuffled[0])
     setSideQuotes(shuffled.slice(1, 5))
+
+    // Check if already logged in
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        await handleAuthUser(session.user.email!)
+      }
+    })
+
+    // Listen for auth changes (after OAuth redirect)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await handleAuthUser(session.user.email!)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
-  async function handleLogin(e: React.FormEvent) {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
+  async function handleAuthUser(email: string) {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     })
     const data = await res.json()
-    if (!res.ok) { setError('Access denied — contact your admin'); setLoading(false); return }
+    if (!res.ok) {
+      await supabase.auth.signOut()
+      setError('Access denied — your account is not authorized. Contact your admin.')
+      return
+    }
     localStorage.setItem('granth_user', JSON.stringify(data.user))
     router.push(data.user.role === 'admin' ? '/admin' : '/chat')
-    setLoading(false)
+  }
+
+  async function handleGoogleLogin() {
+    setLoading(true)
+    setError('')
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/`,
+        queryParams: { hd: 'systemfriendly.com' }
+      }
+    })
+    if (error) { setError(error.message); setLoading(false) }
   }
 
   return (
@@ -72,19 +101,17 @@ export default function Home() {
         .qm{font-size:11px;color:#666;margin-top:4px;font-family:'DM Sans',sans-serif;font-weight:300;font-style:italic;}
         .card-body{padding:28px 40px 36px;}
         @media(max-width:480px){.card-body{padding:24px 28px 32px;}}
-        .divider{display:flex;align-items:center;gap:12px;margin-bottom:20px;}
+        .divider{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
         .div-line{flex:1;height:1px;background:#f0ede8;}
         .div-text{font-size:11px;color:#ccc;letter-spacing:1px;text-transform:uppercase;white-space:nowrap;font-family:'DM Sans',sans-serif;}
-        .label{display:block;font-size:11px;font-weight:600;color:#999;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase;}
-        .input{width:100%;padding:13px 16px;background:#f7f6f2;border:1.5px solid #ebe8e2;border-radius:12px;color:#1a1a1a;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:all 0.2s;margin-bottom:14px;}
-        .input::placeholder{color:#ccc;}
-        .input:focus{border-color:#1a1a1a;background:#fff;box-shadow:0 0 0 3px rgba(0,0,0,0.04);}
-        .btn{width:100%;padding:14px;background:#1a1a1a;border:none;border-radius:12px;color:#fff;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;transition:all 0.2s;letter-spacing:0.2px;}
-        .btn:hover{background:#2d2d2d;transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,0.15);}
-        .btn:active{transform:translateY(0);}
-        .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
+        .google-btn{width:100%;padding:14px;background:#fff;border:1.5px solid #e0e0e0;border-radius:12px;color:#1a1a1a;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:500;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:10px;}
+        .google-btn:hover{border-color:#1a1a1a;background:#faf9f6;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.08);}
+        .google-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+        .google-icon{width:18px;height:18px;flex-shrink:0;}
         .error{font-size:13px;color:#e53e3e;margin-top:12px;padding:10px 14px;background:#fff5f5;border:1px solid #fecaca;border-radius:8px;text-align:center;}
         .footer{text-align:center;margin-top:20px;font-size:11px;color:#ddd;letter-spacing:1px;text-transform:uppercase;}
+        .security-note{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:11px;color:#bbb;}
+        .lock-icon{font-size:12px;}
       `}</style>
       <div className="root">
         <div className="bg-dots"/>
@@ -110,15 +137,20 @@ export default function Home() {
               <div className="div-text">Sign in to continue</div>
               <div className="div-line"/>
             </div>
-            <form onSubmit={handleLogin}>
-              <label className="label">Email address</label>
-              <input className="input" type="email" placeholder="you@systemfriendly.com"
-                value={email} onChange={e => setEmail(e.target.value)} required/>
-              <button className="btn" type="submit" disabled={loading}>
-                {loading ? 'Verifying...' : 'Enter Granth →'}
-              </button>
-              {error && <div className="error">{error}</div>}
-            </form>
+            <button className="google-btn" onClick={handleGoogleLogin} disabled={loading}>
+              <svg className="google-icon" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              {loading ? 'Signing in...' : 'Continue with Google'}
+            </button>
+            {error && <div className="error">{error}</div>}
+            <div className="security-note">
+              <span className="lock-icon">🔒</span>
+              <span>Only @systemfriendly.com accounts allowed</span>
+            </div>
             <div className="footer">SFL Internal · Restricted access</div>
           </div>
         </div>
