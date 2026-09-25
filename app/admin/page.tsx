@@ -14,11 +14,17 @@ export default function AdminPage() {
   const [entities, setEntities] = useState<any[]>([])
   const [analytics, setAnalytics] = useState<any>(null)
   const [sessions, setSessions] = useState<any[]>([])
+  const [quizzes, setQuizzes] = useState<any[]>([])
+  const [newQuiz, setNewQuiz] = useState({ title: '', description: '' })
+  const [newQuestions, setNewQuestions] = useState([{ question: '', options: ['','','',''], correct_answer: '', explanation: '' }])
+  const [assignAll, setAssignAll] = useState<string>('all')
+  const [quizLoading, setQuizLoading] = useState(false)
+  const [quizMsg, setQuizMsg] = useState('')
   const [selectedLog, setSelectedLog] = useState<any>(null)
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState('reader')
   const [newEntity, setNewEntity] = useState({ name: '', aliases: '', type: 'person', description: '' })
-  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'|'analytics'|'presence'>('docs')
+  const [activeTab, setActiveTab] = useState<'docs'|'users'|'entities'|'analytics'|'presence'|'quizzes'>('docs')
   const fileRef = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState('')
   const [fileContext, setFileContext] = useState('')
@@ -29,7 +35,7 @@ export default function AdminPage() {
     if (!stored) { router.push('/'); return }
     const u = JSON.parse(stored)
     if (u.role !== 'admin') { router.push('/chat'); return }
-    setUser(u); fetchDocs(); fetchUsers(); fetchEntities(); fetchAnalytics(); fetchSessions()
+    setUser(u); fetchDocs(); fetchUsers(); fetchEntities(); fetchAnalytics(); fetchSessions(); fetchQuizzes()
   }, [])
 
   async function fetchDocs() {
@@ -51,6 +57,12 @@ export default function AdminPage() {
     const res = await fetch('/api/analytics')
     const data = await res.json()
     setAnalytics(data)
+  }
+
+  async function fetchQuizzes() {
+    const res = await fetch('/api/quizzes')
+    const data = await res.json()
+    setQuizzes(data.quizzes || [])
   }
 
   async function fetchSessions() {
@@ -127,6 +139,7 @@ export default function AdminPage() {
     { id: 'entities', label: 'Entities', count: entities.length },
     { id: 'analytics', label: 'Analytics', count: analytics?.total || 0 },
     { id: 'presence', label: 'Whos Online', count: sessions.filter((s:any) => s.online).length },
+    { id: 'quizzes', label: 'Quizzes', count: quizzes.length },
   ]
 
   return (
@@ -253,7 +266,13 @@ export default function AdminPage() {
           </div>
           <div className="nav-links">
             <a className="nav-link" href="/chat">Open chat</a>
-            <button className="nav-link" onClick={() => { localStorage.removeItem('granth_user'); fetch('/api/auth/logout', {method:'POST'}); router.push('/') }}>Sign out</button>
+            <button className="nav-link" onClick={async () => {
+          const { supabase } = await import('@/lib/supabase')
+          await supabase.auth.signOut()
+          localStorage.removeItem('granth_user')
+          await fetch('/api/auth/logout', {method:'POST'})
+          router.push('/')
+        }}>Sign out</button>
           </div>
         </nav>
 
@@ -587,6 +606,123 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+          {activeTab === 'quizzes' && <>
+            <div className="section">
+              <div className="section-head"><span className="section-title">Create quiz</span></div>
+              <div className="section-body">
+                <div className="field">
+                  <label className="field-label">Title</label>
+                  <input className="field-input" placeholder="SFL Product Knowledge Quiz" value={newQuiz.title} onChange={e => setNewQuiz({...newQuiz, title: e.target.value})}/>
+                </div>
+                <div className="field">
+                  <label className="field-label">Description</label>
+                  <input className="field-input" placeholder="Test your knowledge of SFL products" value={newQuiz.description} onChange={e => setNewQuiz({...newQuiz, description: e.target.value})}/>
+                </div>
+                <div style={{marginBottom:'16px'}}>
+                  <label className="field-label" style={{display:'block',marginBottom:'12px'}}>Questions</label>
+                  {newQuestions.map((q, qi) => (
+                    <div key={qi} style={{background:'#faf9f6',border:'1px solid #ebe8e2',borderRadius:'12px',padding:'16px',marginBottom:'12px'}}>
+                      <div style={{fontSize:'11px',fontWeight:600,color:'#999',letterSpacing:'1px',marginBottom:'10px'}}>Q{qi+1}</div>
+                      <input className="field-input" style={{marginBottom:'10px'}} placeholder="Question" value={q.question}
+                        onChange={e => { const qs=[...newQuestions]; qs[qi].question=e.target.value; setNewQuestions(qs) }}/>
+                      {q.options.map((opt, oi) => (
+                        <div key={oi} style={{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}}>
+                          <span style={{fontSize:'11px',fontWeight:600,color:'#999',width:'16px'}}>{['A','B','C','D'][oi]}</span>
+                          <input className="field-input" style={{flex:1,marginBottom:0}} placeholder={"Option " + ['A','B','C','D'][oi]} value={opt}
+                            onChange={e => { const qs=[...newQuestions]; qs[qi].options[oi]=e.target.value; setNewQuestions(qs) }}/>
+                          <button onClick={() => { const qs=[...newQuestions]; qs[qi].correct_answer=opt; setNewQuestions(qs) }}
+                            style={{padding:'6px 10px',background:q.correct_answer===opt?'#1a1a1a':'#f7f6f2',color:q.correct_answer===opt?'#fff':'#666',border:'1.5px solid',borderColor:q.correct_answer===opt?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'11px',whiteSpace:'nowrap',fontFamily:'DM Sans,sans-serif'}}>
+                            {q.correct_answer===opt ? 'Correct' : 'Set correct'}
+                          </button>
+                        </div>
+                      ))}
+                      <input className="field-input" style={{marginTop:'8px'}} placeholder="Explanation (optional)" value={q.explanation}
+                        onChange={e => { const qs=[...newQuestions]; qs[qi].explanation=e.target.value; setNewQuestions(qs) }}/>
+                      {qi > 0 && <button onClick={() => setNewQuestions(newQuestions.filter((_,i) => i!==qi))}
+                        style={{marginTop:'8px',fontSize:'12px',color:'#e53e3e',background:'none',border:'none',cursor:'pointer',fontFamily:'DM Sans,sans-serif'}}>Remove</button>}
+                    </div>
+                  ))}
+                  <button className="btn btn-ghost btn-sm" onClick={() => setNewQuestions([...newQuestions, {question:'',options:['','','',''],correct_answer:'',explanation:''}])}>
+                    + Add question
+                  </button>
+                </div>
+                <div style={{marginBottom:'16px'}}>
+                  <label className="field-label" style={{display:'block',marginBottom:'10px'}}>Assign to</label>
+                  <div style={{display:'flex',gap:'8px',marginBottom:'10px',flexWrap:'wrap'}}>
+                    <button onClick={() => setAssignAll('all')} style={{padding:'7px 14px',background:assignAll==='all'?'#1a1a1a':'#f7f6f2',color:assignAll==='all'?'#fff':'#666',border:'1.5px solid',borderColor:assignAll==='all'?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontFamily:'DM Sans,sans-serif'}}>Everyone</button>
+                    <button onClick={() => setAssignAll('readers')} style={{padding:'7px 14px',background:assignAll==='readers'?'#1a1a1a':'#f7f6f2',color:assignAll==='readers'?'#fff':'#666',border:'1.5px solid',borderColor:assignAll==='readers'?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontFamily:'DM Sans,sans-serif'}}>Readers only</button>
+                    <button onClick={() => setAssignAll('admins')} style={{padding:'7px 14px',background:assignAll==='admins'?'#1a1a1a':'#f7f6f2',color:assignAll==='admins'?'#fff':'#666',border:'1.5px solid',borderColor:assignAll==='admins'?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontFamily:'DM Sans,sans-serif'}}>Admins only</button>
+                    <button onClick={() => setAssignAll('custom')} style={{padding:'7px 14px',background:assignAll==='custom'?'#1a1a1a':'#f7f6f2',color:assignAll==='custom'?'#fff':'#666',border:'1.5px solid',borderColor:assignAll==='custom'?'#1a1a1a':'#ebe8e2',borderRadius:'8px',cursor:'pointer',fontSize:'12px',fontFamily:'DM Sans,sans-serif'}}>Select people</button>
+                  </div>
+                  {assignAll === 'custom' && (
+                    <div style={{display:'flex',flexDirection:'column',gap:'6px',background:'#faf9f6',border:'1px solid #ebe8e2',borderRadius:'10px',padding:'12px'}}>
+                      {users.map((u: any) => (
+                        <label key={u.email} style={{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer',fontSize:'13px',color:'#444'}}>
+                          <input type="checkbox" defaultChecked onChange={e => {
+                            const el = document.getElementById('custom-assign-' + u.email) as any
+                            if (el) el.dataset.checked = e.target.checked
+                          }} id={'custom-assign-' + u.email}/>
+                          {u.email} <span style={{fontSize:'10px',color:'#999',background:'#f0ede8',padding:'2px 6px',borderRadius:'4px'}}>{u.role}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button className="btn btn-full" disabled={quizLoading || !newQuiz.title} onClick={async () => {
+                  setQuizLoading(true); setQuizMsg('')
+                  let assignTo: string[] = []
+                  if (assignAll === 'all') assignTo = users.map((u: any) => u.email)
+                  else if (assignAll === 'readers') assignTo = users.filter((u: any) => u.role === 'reader').map((u: any) => u.email)
+                  else if (assignAll === 'admins') assignTo = users.filter((u: any) => u.role === 'admin').map((u: any) => u.email)
+                  else if (assignAll === 'custom') {
+                    assignTo = users.filter((u: any) => {
+                      const el = document.getElementById('custom-assign-' + u.email) as any
+                      return el?.dataset.checked !== 'false'
+                    }).map((u: any) => u.email)
+                  }
+                  const res = await fetch('/api/quizzes', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({...newQuiz, questions: newQuestions, assignTo, created_by: user.email})
+                  })
+                  const data = await res.json()
+                  if (data.success) { setQuizMsg('success'); setNewQuiz({title:'',description:''}); setNewQuestions([{question:'',options:['','','',''],correct_answer:'',explanation:''}]); fetchQuizzes() }
+                  setQuizLoading(false)
+                }}>
+                  {quizLoading ? 'Creating...' : 'Create and assign quiz'}
+                </button>
+                {quizMsg === 'success' && <div className="msg-ok">Quiz created and assigned!</div>}
+              </div>
+            </div>
+            <div className="section">
+              <div className="section-head">
+                <span className="section-title">Active quizzes</span>
+                <span className="section-count">{quizzes.length}</span>
+              </div>
+              {quizzes.length === 0 ? <div className="empty-msg">No quizzes yet.</div> : (
+                quizzes.map((q: any) => {
+                  const completed = q.quiz_assignments?.filter((a: any) => a.completed_at).length || 0
+                  const total = q.quiz_assignments?.length || 0
+                  const avgScore = completed > 0 ? Math.round(q.quiz_assignments.filter((a: any) => a.score).reduce((s: number, a: any) => s+(a.score||0), 0) / completed) : 0
+                  return (
+                    <div key={q.id} className="item-row">
+                      <div className="item-info">
+                        <div className="item-name">{q.title}</div>
+                        <div className="item-sum">{q.description}</div>
+                        <div className="item-meta">{q.quiz_questions?.length||0} questions · {completed}/{total} completed · avg {avgScore}%</div>
+                      </div>
+                      <button className="del-btn" onClick={async () => {
+                        if (!confirm('Delete quiz?')) return
+                        await fetch('/api/quizzes',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:q.id})})
+                        fetchQuizzes()
+                      }}>Delete</button>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </>}
+
       </div>
     </>
   )

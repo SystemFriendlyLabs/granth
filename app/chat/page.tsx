@@ -20,6 +20,7 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pendingQuiz, setPendingQuiz] = useState<any>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const router = useRouter()
@@ -27,7 +28,12 @@ export default function ChatPage() {
   useEffect(() => {
     const stored = localStorage.getItem('granth_user')
     if (!stored) { router.push('/'); return }
-    setUser(JSON.parse(stored))
+    const u = JSON.parse(stored)
+    setUser(u)
+    // Check for pending quizzes
+    fetch(`/api/quizzes/attempt?email=${u.email}`)
+      .then(r => r.json())
+      .then(data => { if (data.pending?.length > 0) setPendingQuiz(data.pending[0]) })
   }, [])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
@@ -76,6 +82,24 @@ export default function ChatPage() {
 
   return (
     <div className="root">
+      {pendingQuiz && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px',backdropFilter:'blur(4px)'}}>
+          <div style={{background:'#fff',borderRadius:'24px',padding:'32px',maxWidth:'400px',width:'100%',textAlign:'center',boxShadow:'0 24px 64px rgba(0,0,0,0.15)'}}>
+            <div style={{fontSize:'48px',marginBottom:'16px'}}>📋</div>
+            <div style={{fontSize:'20px',fontWeight:700,color:'#1a1a1a',marginBottom:'8px'}}>New Assessment!</div>
+            <div style={{fontSize:'15px',color:'#666',marginBottom:'4px',fontWeight:500}}>{pendingQuiz.quizzes?.title}</div>
+            <div style={{fontSize:'13px',color:'#999',marginBottom:'24px'}}>{pendingQuiz.quizzes?.description}</div>
+            <div style={{display:'flex',gap:'10px'}}>
+              <button onClick={() => setPendingQuiz(null)} style={{flex:1,padding:'12px',background:'#f7f6f2',border:'1.5px solid #ebe8e2',borderRadius:'12px',cursor:'pointer',fontSize:'13px',color:'#666',fontFamily:'DM Sans,sans-serif'}}>
+                Later
+              </button>
+              <button onClick={() => router.push(`/quiz/${pendingQuiz.quiz_id}`)} style={{flex:2,padding:'12px',background:'#1a1a1a',border:'none',borderRadius:'12px',cursor:'pointer',fontSize:'13px',color:'#fff',fontWeight:500,fontFamily:'DM Sans,sans-serif'}}>
+                Take quiz now →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={sidebarOpen ? 'overlay open' : 'overlay'} onClick={() => setSidebarOpen(false)}/>
       <div className={sidebarOpen ? 'sidebar open' : 'sidebar'}>
         <div className="sb-head">
@@ -100,7 +124,13 @@ export default function ChatPage() {
             <span style={{fontSize:'11px',color:'#10b981',fontWeight:500}}>Online</span>
           </div>
           <span className="sb-email">{user?.email}</span>
-          <button className="sb-logout" onClick={() => { localStorage.removeItem('granth_user'); fetch('/api/auth/logout', {method:'POST'}); router.push('/') }}>Sign out</button>
+          <button className="sb-logout" onClick={async () => {
+          const { supabase } = await import('@/lib/supabase')
+          await supabase.auth.signOut()
+          localStorage.removeItem('granth_user')
+          await fetch('/api/auth/logout', {method:'POST'})
+          router.push('/')
+        }}>Sign out</button>
         </div>
       </div>
 
