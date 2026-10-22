@@ -22,6 +22,28 @@ export async function POST(req: NextRequest) {
     if (!question) return NextResponse.json({ error: 'No question provided' }, { status: 400 })
 
     const embedding = await generateEmbedding(question)
+
+    // Check semantic cache first
+    const { data: cacheHits } = await supabaseAdmin.rpc('match_cache', {
+      query_embedding: embedding,
+      similarity_threshold: 0.92,
+      match_count: 1
+    })
+
+    if (cacheHits?.length > 0) {
+      const hit = cacheHits[0]
+      // Update hit count
+      await supabaseAdmin.from('query_cache')
+        .update({ hit_count: hit.hit_count + 1, last_hit_at: new Date().toISOString() })
+        .eq('id', hit.id)
+      
+      return NextResponse.json({
+        answer: hit.answer,
+        sources: hit.sources || [],
+        cached: true
+      })
+    }
+
     const counting = isCountingQuery(question)
     const discovery = isDiscoveryQuery(question)
     const multiDoc = isMultiDocQuery(question)

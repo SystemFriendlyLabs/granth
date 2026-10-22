@@ -12,6 +12,7 @@ interface Message {
   sources?: Source[]
   query_log_id?: string
   score?: number
+  cached?: boolean
 }
 
 export default function ChatPage() {
@@ -56,7 +57,8 @@ export default function ChatPage() {
       role: 'assistant',
       content: data.answer || data.error || 'No response.',
       sources: data.sources || [],
-      query_log_id: data.query_log_id
+      query_log_id: data.query_log_id,
+      cached: data.cached
     }])
     setLoading(false)
   }
