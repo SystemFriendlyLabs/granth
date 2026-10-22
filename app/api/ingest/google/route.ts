@@ -54,6 +54,22 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Clear related cache entries
+    try {
+      const { generateEmbedding } = await import('@/lib/embeddings')
+      const topicEmbedding = await generateEmbedding(title || url)
+      const { data: relatedCache } = await supabaseAdmin.rpc('match_cache', {
+        query_embedding: topicEmbedding,
+        similarity_threshold: 0.75,
+        match_count: 20
+      })
+      if (relatedCache?.length) {
+        await supabaseAdmin.from('query_cache')
+          .delete()
+          .in('id', relatedCache.map((c: any) => c.id))
+      }
+    } catch {}
+
     return NextResponse.json({ success: true, document: doc })
   } catch (err: any) {
     console.error(err)

@@ -506,6 +506,11 @@ export default function AdminPage() {
               <div className="section-head">
                 <span className="section-title">Query log</span>
                 <button className="btn btn-sm btn-ghost" onClick={fetchAnalytics}>Refresh</button>
+                <button className="btn btn-sm btn-ghost" style={{color:'#e53e3e',borderColor:'#fecaca'}} onClick={async () => {
+                  if (!confirm('Clear all cached answers? They will be rebuilt from fresh queries.')) return
+                  await fetch('/api/cache', {method:'DELETE'})
+                  alert('Cache cleared')
+                }}>Clear cache</button>
               </div>
               {!analytics?.logs?.length ? <div className="empty-msg">No queries yet.</div> : (
                 <div style={{overflowX:'auto'}}>

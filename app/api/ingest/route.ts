@@ -90,6 +90,24 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Clear related cache entries for this document's topic
+    try {
+      const docEmbedding = await generateEmbedding(fileName + ' ' + (context || ''))
+      const { data: relatedCache } = await supabaseAdmin.rpc('match_cache', {
+        query_embedding: docEmbedding,
+        similarity_threshold: 0.75,
+        match_count: 20
+      })
+      if (relatedCache?.length) {
+        await supabaseAdmin.from('query_cache')
+          .delete()
+          .in('id', relatedCache.map((c: any) => c.id))
+        console.log('Cleared', relatedCache.length, 'cache entries for updated doc:', fileName)
+      }
+    } catch (e) {
+      console.error('Cache clear error:', e)
+    }
+
     return NextResponse.json({ success: true, document: doc })
   } catch (err: any) {
     console.error(err)
