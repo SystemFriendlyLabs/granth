@@ -21,7 +21,19 @@ export async function POST(req: NextRequest) {
     const { question, history = [] } = await req.json()
     if (!question) return NextResponse.json({ error: 'No question provided' }, { status: 400 })
 
-    const embedding = await generateEmbedding(question)
+    // Expand short acronyms for better search
+    const acronyms: Record<string, string> = {
+      'hms': 'HMS SF Pulse hospital clinic management system',
+      'lims': 'LIMS LabFlow laboratory information management system',
+      'ims': 'IMS InventoryCloud inventory management system',
+      'lft': 'LFT liver function test parameters',
+      'kft': 'KFT kidney function test parameters',
+      'cbc': 'CBC complete blood count parameters',
+    }
+    const qLower = question.toLowerCase().trim()
+    const searchQuery = acronyms[qLower] || question
+
+    const embedding = await generateEmbedding(searchQuery)
 
     // Check semantic cache first
     const { data: cacheHits } = await supabaseAdmin.rpc('match_cache', {
@@ -49,7 +61,7 @@ export async function POST(req: NextRequest) {
     const multiDoc = isMultiDocQuery(question)
 
     const { data: topChunks, error } = await supabaseAdmin.rpc('hybrid_search', {
-      query_text: question,
+      query_text: searchQuery,
       query_embedding: embedding,
       match_count: 20
     })
